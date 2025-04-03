@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 
+from dotenv import load_dotenv
+load_dotenv()  # Load environment variables from .env file
+
 import pyaudio
 import struct
 import speech_recognition as sr
@@ -82,12 +85,9 @@ class VoiceAssistant:
             self.history_file = "conversation_history.json"
             self.conversation_history = self.load_history()
 
-            # Initialize OpenAI client
-            try:
-                self.client = OpenAI()  # Will use OPENAI_API_KEY environment variable
-                self.screen.log_message("OpenAI client initialized successfully")
-            except Exception as e:
-                self.screen.log_message(f"Error initializing OpenAI client: {e}")
+            # Configuration file
+            self.config_file = "config.json"
+            self.load_config()
 
             # Initialize pygame mixer with higher quality settings
             mixer.init(frequency=44100, size=-16, channels=2, buffer=4096)
@@ -158,7 +158,7 @@ class VoiceAssistant:
             prompt_frame = tk.Frame(self.root)
             prompt_frame.pack(pady=5)
             tk.Label(prompt_frame, text="System Prompt:").pack()
-            self.system_prompt_entry = tk.Text(prompt_frame, width=40, height=3)
+            self.system_prompt_entry = scrolledtext.ScrolledText(prompt_frame, width=40, height=3)
             self.system_prompt_entry.insert("1.0", self.system_prompt)
             self.system_prompt_entry.pack()
             self.update_prompt_button = tk.Button(prompt_frame, text="Update Prompt", command=self.update_system_prompt)
@@ -189,6 +189,13 @@ class VoiceAssistant:
             tk.Label(log_frame, text="Log:").pack()
             self.log = scrolledtext.ScrolledText(log_frame, width=40, height=15)
             self.log.pack()
+
+            # Initialize OpenAI client
+            try:
+                self.client = OpenAI()  # Will use OPENAI_API_KEY environment variable
+                self.log_message("OpenAI client initialized successfully")
+            except Exception as e:
+                self.log_message(f"Error initializing OpenAI client: {e}")
 
             self.recognizer = sr.Recognizer()
             self.microphone = sr.Microphone()
@@ -536,7 +543,6 @@ class VoiceAssistant:
         """Clean up resources before exit"""
         try:
             print("Starting cleanup...")
-            self.log_message("Starting cleanup...")
             
             # Stop listening if active
             if self.running:
@@ -570,12 +576,10 @@ class VoiceAssistant:
             self.save_config()
             
             print("Cleanup complete.")
-            self.log_message("Cleanup complete.")
             
         except Exception as e:
             print(f"Error during cleanup: {e}")
             traceback.print_exc()
-            self.log_message(f"Error during cleanup: {e}")
 
     def main(self):
         try:
@@ -585,13 +589,11 @@ class VoiceAssistant:
         except Exception as e:
             print(f"Error in main: {e}")
             traceback.print_exc()
-        finally:
             self.cleanup()
 
     def on_closing(self):
         """Handle window closing event"""
         print("Window closing requested...")
-        self.log_message("Window closing requested...")
         self.cleanup()
         self.root.destroy()
         sys.exit(0)

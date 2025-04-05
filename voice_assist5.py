@@ -21,6 +21,7 @@ from gtts import gTTS
 import json
 import signal
 import sys
+import datetime  # Add this import for handling time queries
 
 class VoiceAssistant:
     def __init__(self):
@@ -77,7 +78,7 @@ class VoiceAssistant:
             self.response_sound_file = "default_response.wav"
 
             # System prompt and AI model
-            self.system_prompt = "You are a helpful and friendly voice assistant. Keep your responses concise and limited to 100 words maximum. Be direct and clear in your communication."
+            self.system_prompt = "You are a helpful and friendly voice assistant. Keep your responses concise and limited to 50 words maximum. My name is Joe. You are located in Rochester, NY. Be direct and clear in your communication."
             self.current_model = "OpenAI"
             self.current_voice = "us"  # Default to US English
 
@@ -137,14 +138,16 @@ class VoiceAssistant:
             voice_frame = tk.Frame(selection_frame)
             voice_frame.pack(side=tk.LEFT, padx=5)
             tk.Label(voice_frame, text="Voice:").pack(side=tk.LEFT)
-            self.voice_selector = ttk.Combobox(voice_frame, 
+            self.voice_selector = ttk.Combobox(
+                voice_frame, 
                 values=["US English", "UK English", "Australian English", "Indian English", "Irish English", "South African English", "Canadian English"],
                 state="readonly",
-                width=15)
-            self.voice_selector.set("US English")
+                width=15
+            )
+            self.voice_selector.set("UK English")  # Changed default selection to UK English
             self.voice_selector.pack(side=tk.LEFT)
             self.voice_selector.bind("<<ComboboxSelected>>", self.update_voice)
-            
+
             # Model Selection
             model_frame = tk.Frame(selection_frame)
             model_frame.pack(side=tk.LEFT, padx=5)
@@ -226,7 +229,7 @@ class VoiceAssistant:
 
     def update_voice(self, event):
         voice_mapping = {
-            "US English": "us",
+            "US English": "com",
             "UK English": "co.uk",
             "Australian English": "com.au",
             "Indian English": "co.in",
@@ -234,8 +237,9 @@ class VoiceAssistant:
             "South African English": "co.za",
             "Canadian English": "ca"
         }
-        self.current_voice = voice_mapping[self.voice_selector.get()]
-        self.log_message(f"Voice changed to: {self.voice_selector.get()}")
+        selected_voice = self.voice_selector.get()
+        self.current_voice = voice_mapping.get(selected_voice, "com")  # Default to US English if invalid
+        self.log_message(f"Voice changed to: {selected_voice}")
 
     def play_sound(self, sound_file):
         try:
@@ -294,7 +298,7 @@ class VoiceAssistant:
         realtime_indicators = [
             r"current\b", r"today\b", r"now\b", r"this week\b", 
             r"weather\b", r"news\b", r"stock\b", r"price\b", 
-            r"live\b", r"update\b", r"latest\b"
+            r"live\b", r"update\b", r"latest\b", r"time\b"  # Added "time" to detect time-related queries
         ]
         command_lower = command.lower()
         return any(re.search(pattern, command_lower) for pattern in realtime_indicators)
@@ -412,6 +416,12 @@ class VoiceAssistant:
             return "Sorry, I encountered an error processing your request."
 
     def get_response(self, command):
+        # Handle time-related queries directly
+        if "time" in command.lower():
+            current_time = datetime.datetime.now().strftime("%I:%M %p")  # Format time as HH:MM AM/PM
+            return f"The current time is {current_time}."
+
+        # ...existing code for handling other models...
         if self.current_model == "OpenAI":
             return self.get_openai_response(command)
         elif self.current_model == "Grok":
@@ -421,8 +431,23 @@ class VoiceAssistant:
 
     def speak(self, text):
         try:
+            # Supported TLDs for accents
+            supported_tlds = {
+                "US English": "com",
+                "UK English": "co.uk",
+                "Australian English": "com.au",
+                "Indian English": "co.in",
+                "Irish English": "ie",
+                "South African English": "co.za",
+                "Canadian English": "ca"
+            }
+
+            # Validate and set TLD
+            selected_voice = self.voice_selector.get()
+            tld = supported_tlds.get(selected_voice, "com")  # Default to US English if invalid
+            self.log_message(f"DEBUG: Using TLD '{tld}' for voice: {selected_voice}")
+
             # Split text into sentences for chunking
-            # Split on sentence endings (., !, ?)
             sentences = re.split(r'[.!?]+', text)
             sentences = [s.strip() for s in sentences if s.strip()]
             
@@ -441,7 +466,8 @@ class VoiceAssistant:
                 cleaned_text = padded_text.replace('*', '')
                 
                 # Generate TTS audio for this chunk with selected voice
-                tts = gTTS(text=cleaned_text, lang='en', tld=self.current_voice)
+                self.log_message(f"DEBUG: Generating TTS for sentence: {cleaned_text}")
+                tts = gTTS(text=cleaned_text, lang='en', tld=tld)
                 filename = f"response_chunk_{hash(sentence)}.mp3"
                 tts.save(filename)
                 
